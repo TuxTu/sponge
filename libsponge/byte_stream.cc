@@ -38,7 +38,7 @@ string ByteStream::peek_output(const size_t len) const {
 	string s;
 	s.resize(len);
 	size_t rh = r_head;
-	size_t n = min(bsize-left_space, len);
+	size_t n = ended ? min(bsize-left_space+1, len) : min(bsize-left_space, len);
 	
 	for(size_t i = 0; i < n; i++){
 		s[i] = buffer[rh];
@@ -49,7 +49,7 @@ string ByteStream::peek_output(const size_t len) const {
 
 //! \param[in] len bytes will be removed from the output side of the buffer
 void ByteStream::pop_output(const size_t len) {
-	size_t n = min(bsize-left_space, len);
+	size_t n = ended ? min(bsize-left_space+1, len) : min(bsize-left_space, len);
 	left_space += n;
 	r_bytes += n;
 	r_head = (r_head + n) % bsize;
@@ -61,7 +61,7 @@ void ByteStream::pop_output(const size_t len) {
 std::string ByteStream::read(const size_t len) {
 	std::string s;
 	s.resize(len);
-	size_t n = min(bsize-left_space, len);
+	size_t n = ended ? min(bsize-left_space+1, len) : min(bsize-left_space, len);
 
 	for(size_t i = 0; i < n; i++){
 		s[i] = buffer[r_head];
@@ -75,7 +75,7 @@ std::string ByteStream::read(const size_t len) {
 
 void ByteStream::end_input() {
 	ended = true;
-	buffer[w_head] = EOF;
+	buffer[w_head++] = EOF;
 }
 
 bool ByteStream::input_ended() const { return ended == true; }
