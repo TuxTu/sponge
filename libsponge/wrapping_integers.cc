@@ -14,8 +14,7 @@ using namespace std;
 //! \param n The input absolute 64-bit sequence number
 //! \param isn The initial sequence number
 WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) {
-    DUMMY_CODE(n, isn);
-    return WrappingInt32{0};
+    return WrappingInt32{static_cast<uint32_t>((n+isn.raw_value()) % (1UL << 32))};
 }
 
 //! Transform a WrappingInt32 into an "absolute" 64-bit sequence number (zero-indexed)
@@ -29,6 +28,22 @@ WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) {
 //! and the other stream runs from the remote TCPSender to the local TCPReceiver and
 //! has a different ISN.
 uint64_t unwrap(WrappingInt32 n, WrappingInt32 isn, uint64_t checkpoint) {
-    DUMMY_CODE(n, isn, checkpoint);
-    return {};
+	uint64_t base = (checkpoint / (1UL << 32)) * (1UL << 32);
+	uint32_t complementor = checkpoint % (1UL << 32);
+	uint32_t diff = n.raw_value() - isn.raw_value();	// Absolute number in low 32-bit.
+	uint64_t res;
+	uint32_t dist1 = diff - complementor;	// Distance from low 32-bit of absolute number to low 32-bit of checkpoint.
+	uint32_t dist2 = complementor - diff;	// Two distances imply two ways of count, it would be helpful to determin the correct high-bit in absolute number.
+	if (diff > complementor){
+		if (dist1 > dist2 && base != 0)
+			res = base+diff-(1UL<<32);
+		else
+			res = base+diff;
+	} else{
+		if (dist2 > dist1)
+			res = base+diff+(1UL<<32);
+		else
+			res = base+diff;
+	}
+	return res;
 }
