@@ -60,8 +60,8 @@ void ByteStream::pop_output(const size_t len) {
 //! \returns a string
 std::string ByteStream::read(const size_t len) {
 	std::string s;
-	s.resize(len);
 	size_t n = min(bsize-left_space, len);
+	s.resize(n);
 
 	for(size_t i = 0; i < n; i++){
 		s[i] = buffer[r_head];
