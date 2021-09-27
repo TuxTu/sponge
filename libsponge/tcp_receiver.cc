@@ -12,6 +12,8 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
 		_isn = WrappingInt32(seg.header().seqno.raw_value());
 	if(_isn.has_value()){
 		_checkpoint = unwrap(seg.header().seqno, _isn.value(), _checkpoint);
+		if(_checkpoint == 0 && !seg.header().syn)
+			return;
 		_reassembler.push_substring(seg.payload().copy(), (_checkpoint == 0 ? 0 : _checkpoint - 1), seg.header().fin);
 	}
 }
