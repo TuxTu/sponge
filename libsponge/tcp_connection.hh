@@ -21,6 +21,10 @@ class TCPConnection {
     //! in case the remote TCPConnection doesn't know we've received its whole stream?
     bool _linger_after_streams_finish{true};
 
+	bool _time_out{false};
+
+	size_t _timer{0};
+
   public:
     //! \name "Input" interface for the writer
     //!@{
@@ -64,6 +68,9 @@ class TCPConnection {
 
     //! Called when a new segment has been received from the network
     void segment_received(const TCPSegment &seg);
+
+	//! Send all segments in the sender's segment out queue
+	void send_all_segments();
 
     //! Called periodically when time elapses
     void tick(const size_t ms_since_last_tick);

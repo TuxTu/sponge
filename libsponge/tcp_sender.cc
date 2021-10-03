@@ -2,6 +2,8 @@
 
 #include "tcp_config.hh"
 
+#include <iostream>
+
 #include <random>
 
 // For Lab 3, please replace with a real implementation that passes the
@@ -38,6 +40,8 @@ void TCPSender::fill_window() {
 			new_seg.header().seqno = next_seqno();
 			fin = true;
 			send_segment(new_seg);
+			// cerr << "\nfin seg's size is: " << new_seg.length_in_sequence_space() << "\n";
+			// cerr << "\nfin seg's header().seqno is: " << new_seg.header().seqno.raw_value() << "\n";
 			_window_size -= new_seg.length_in_sequence_space();
 		}
 	}
@@ -89,7 +93,7 @@ bool TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
 
 	_recent_ackno = unwrap(ackno, _isn, _next_seqno);
 
-	_window_size = (window_size == 0) ? 1 : _recent_ackno + window_size - _next_seqno;
+	_window_size = (window_size == 0) ? 1 : (_recent_ackno + window_size >= _next_seqno ? _recent_ackno + window_size - _next_seqno : 0);
 	_back_off = (window_size != 0);
 
 	fill_window();
@@ -98,14 +102,19 @@ bool TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void TCPSender::tick(const size_t ms_since_last_tick) {
-	_timer._counter_ms += ms_since_last_tick;
+	if (_timer._boot)
+		_timer._counter_ms += ms_since_last_tick;
+	else
+		return;
+
 	// If timer elapsed, re-send the earliest segment in the outstanding queue
-	if(_timer._counter_ms >= _RTO && _timer._boot){
+	if(_timer._counter_ms >= _RTO && _timer._boot && not _segments_outstanding.empty()){
 		_segments_out.push(_segments_outstanding.front());
-		_consecutive_retransmissions++;
 		_timer._counter_ms = 0;
-		if(_back_off)
+		_consecutive_retransmissions++;
+		if(_back_off) {
 			_RTO = _RTO << 1;
+		}
 	}
 	
 	return;
@@ -116,7 +125,15 @@ unsigned int TCPSender::consecutive_retransmissions() const { return _consecutiv
 void TCPSender::send_empty_segment() {
 	TCPSegment seg = {};
 	seg.header().seqno = next_seqno();
-	_segments_out.push(seg);
+	send_segment(seg);
+}
+
+void TCPSender::send_empty_segment(const TCPHeader header) {
+	TCPSegment seg = {};
+	seg.header() = header;
+	seg.header().seqno = next_seqno();
+
+	send_segment(seg);
 }
 
 void TCPSender::send_segment(const TCPSegment seg) {
@@ -124,10 +141,11 @@ void TCPSender::send_segment(const TCPSegment seg) {
 	_unacked_bytes += seg.length_in_sequence_space();
 	_next_seqno += seg.length_in_sequence_space();
 	_segments_out.push(seg);
-	if(seg.length_in_sequence_space() != 0)
+	if(seg.length_in_sequence_space() != 0) {
 		_segments_outstanding.push(seg);
-	if(not _timer._boot){
-		_timer._boot = true;
-		_timer._counter_ms = 0;
+		if(not _timer._boot){
+			_timer._boot = true;
+			_timer._counter_ms = 0;
+		}
 	}
 }
