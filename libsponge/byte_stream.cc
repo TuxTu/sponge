@@ -10,85 +10,64 @@
 
 using namespace std;
 
-ByteStream::ByteStream(const size_t capacity) : bsize(capacity), left_space(capacity) {
-	buffer.resize(capacity);
-	w_head = 0;
-	r_head = 0;
-	w_bytes = 0;
-	r_bytes = 0;
-	ended = 0;
+ByteStream::ByteStream(const size_t capacity) : _bsize(capacity), _left_space(capacity) {
+	_w_bytes = 0;
+	_r_bytes = 0;
+	_ended = 0;
 }
 
 size_t ByteStream::write(const string &data) {
-	size_t i = 0;
+	size_t len = min(data.length(), _left_space);
 	
-	while(i < data.size() && left_space > 0){
-		buffer[w_head] = data[i];
-		w_head = (w_head + 1) % bsize;
-		w_bytes++;
-		i++;
-		left_space--;
-	}
+	_buffer.append(move(string().assign(data.begin(), data.begin()+len)));
+	_w_bytes += len;
+	_left_space -= len;
 
-	return i;
+	return len;
 }
 
 //! \param[in] len bytes will be copied from the output side of the buffer
 string ByteStream::peek_output(const size_t len) const {
-	string s;
-	s.resize(len);
-	size_t rh = r_head;
-	size_t n = min(bsize-left_space, len);
-	
-	for(size_t i = 0; i < n; i++){
-		s[i] = buffer[rh];
-		rh = (rh + 1) % bsize;
-	}
-    return s;
+	std::string s = _buffer.concatenate();
+	size_t length = min(len, _bsize - _left_space);
+
+    return string().assign(s.begin(), s.begin() + length);
 }
 
 //! \param[in] len bytes will be removed from the output side of the buffer
 void ByteStream::pop_output(const size_t len) {
-	size_t n = min(bsize-left_space, len);
-	left_space += n;
-	r_bytes += n;
-	r_head = (r_head + n) % bsize;
+	size_t length = min(len, _bsize - _left_space);
+	_buffer.remove_prefix(length);
+	_left_space += length;
+	_r_bytes += length;
 }
 
 //! Read (i.e., copy and then pop) the next "len" bytes of the stream
 //! \param[in] len bytes will be popped and returned
 //! \returns a string
 std::string ByteStream::read(const size_t len) {
-	std::string s;
-	size_t n = min(bsize-left_space, len);
-	s.resize(n);
-
-	for(size_t i = 0; i < n; i++){
-		s[i] = buffer[r_head];
-		r_bytes++;
-		left_space++;
-		r_head = (r_head + 1) % bsize;
-	}
+	std::string s = peek_output(len);
+	pop_output(len);
 
 	return s;
 }
 
 void ByteStream::end_input() {
-	ended = true;
+	_ended = true;
 }
 
-bool ByteStream::input_ended() const { return ended == true; }
+bool ByteStream::input_ended() const { return _ended == true; }
 
-size_t ByteStream::buffer_size() const { return bsize-left_space; }
+size_t ByteStream::buffer_size() const { return _bsize-_left_space; }
 
 bool ByteStream::buffer_empty() const { 
-	return left_space == bsize; 
+	return _left_space == _bsize; 
 }
 
-bool ByteStream::eof() const { return (ended == true) && (left_space == bsize); }
+bool ByteStream::eof() const { return (_ended == true) && (_left_space == _bsize); }
 
-size_t ByteStream::bytes_written() const { return w_bytes; }
+size_t ByteStream::bytes_written() const { return _w_bytes; }
 
-size_t ByteStream::bytes_read() const { return r_bytes; }
+size_t ByteStream::bytes_read() const { return _r_bytes; }
 
-size_t ByteStream::remaining_capacity() const { return left_space; }
+size_t ByteStream::remaining_capacity() const { return _left_space; }

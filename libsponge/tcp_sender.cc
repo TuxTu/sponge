@@ -2,8 +2,6 @@
 
 #include "tcp_config.hh"
 
-#include <iostream>
-
 #include <random>
 
 // For Lab 3, please replace with a real implementation that passes the
@@ -33,6 +31,9 @@ void TCPSender::fill_window() {
 		return;
 	}
 	
+	if(fin)
+		return;
+
 	if(_window_size > 0 && _stream.buffer_empty() && not fin){
 		if(_stream.eof()){
 			TCPSegment new_seg{};
@@ -40,8 +41,6 @@ void TCPSender::fill_window() {
 			new_seg.header().seqno = next_seqno();
 			fin = true;
 			send_segment(new_seg);
-			// cerr << "\nfin seg's size is: " << new_seg.length_in_sequence_space() << "\n";
-			// cerr << "\nfin seg's header().seqno is: " << new_seg.header().seqno.raw_value() << "\n";
 			_window_size -= new_seg.length_in_sequence_space();
 		}
 	}
@@ -49,7 +48,7 @@ void TCPSender::fill_window() {
 	while(_window_size > 0 && not _stream.buffer_empty() && not fin){
 		TCPSegment new_seg{};
 		new_seg.header().seqno = next_seqno();
-		uint16_t length = min(TCPConfig::MAX_PAYLOAD_SIZE, static_cast<size_t>(_window_size));
+		uint16_t length = min({_stream.buffer_size(), TCPConfig::MAX_PAYLOAD_SIZE, static_cast<size_t>(_window_size)});
 		new_seg.payload() = Buffer(_stream.read(length));
 		if(new_seg.length_in_sequence_space() < _window_size){
 			new_seg.header().fin = _stream.eof();
@@ -70,7 +69,7 @@ bool TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
 
 	// If ackno is outdated, just ignore it
 	if(unwrap(ackno, _isn, _next_seqno) < _recent_ackno)
-		return false;
+		return true;
 
 	// Pop up all the segments whose payload has been acknowledged
 	while(not _segments_outstanding.empty()){
@@ -108,13 +107,13 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
 		return;
 
 	// If timer elapsed, re-send the earliest segment in the outstanding queue
-	if(_timer._counter_ms >= _RTO && _timer._boot && not _segments_outstanding.empty()){
+	if(_timer._counter_ms >= _RTO && not _segments_outstanding.empty()){
 		_segments_out.push(_segments_outstanding.front());
 		_timer._counter_ms = 0;
-		_consecutive_retransmissions++;
 		if(_back_off) {
 			_RTO = _RTO << 1;
-		}
+			_consecutive_retransmissions++;
+		} 
 	}
 	
 	return;

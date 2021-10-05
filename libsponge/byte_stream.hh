@@ -2,6 +2,7 @@
 #define SPONGE_LIBSPONGE_BYTE_STREAM_HH
 
 #include <string>
+#include "util/buffer.hh"
 
 //! \brief An in-order byte stream.
 
@@ -17,15 +18,13 @@ class ByteStream {
     // that's a sign that you probably want to keep exploring
     // different approaches.
 
-	std::string buffer{};
-	size_t bsize{};
-	size_t left_space{};
+	BufferList _buffer{};
+	size_t _bsize{};
+	size_t _left_space{};
 
-	size_t w_head{}, r_head{};
-
-	size_t w_bytes{}, r_bytes{};
+	size_t _w_bytes{}, _r_bytes{};
 	
-	bool ended{};
+	bool _ended{};
     bool _error{};  //!< Flag indicating that the stream suffered an error.
 
   public:

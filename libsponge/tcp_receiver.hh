@@ -21,8 +21,6 @@ class TCPReceiver {
 	std::optional<WrappingInt32> _isn = std::nullopt;
 	std::optional<WrappingInt32> _ackno = std::nullopt;
 
-	//! Latest unwrapped package seqno.
-	uint64_t _checkpoint = 0;
     //! The maximum number of bytes we'll store.
     size_t _capacity;
 
@@ -43,6 +41,8 @@ class TCPReceiver {
     //! of the first byte in the stream that the receiver hasn't received.
     std::optional<WrappingInt32> ackno() const;
 
+	size_t abs_ackno() const;
+
     //! \brief The window size that should be sent to the peer
     //!
     //! Operationally: the capacity minus the number of bytes that the
@@ -60,13 +60,17 @@ class TCPReceiver {
     size_t unassembled_bytes() const { return _reassembler.unassembled_bytes(); }
 
     //! \brief handle an inbound segment
-    void segment_received(const TCPSegment &seg);
+    bool segment_received(const TCPSegment &seg);
 
     //! \name "Output" interface for the reader
     //!@{
     ByteStream &stream_out() { return _reassembler.stream_out(); }
     const ByteStream &stream_out() const { return _reassembler.stream_out(); }
     //!@}
+
+	bool LISTEN() { return not ackno().has_value(); }
+	bool SYN_RECV() { return ackno().has_value() && not stream_out().input_ended(); }
+	bool FIN_RECV() { return stream_out().input_ended(); }
 };
 
 #endif  // SPONGE_LIBSPONGE_TCP_RECEIVER_HH

@@ -21,7 +21,7 @@ class TCPConnection {
     //! in case the remote TCPConnection doesn't know we've received its whole stream?
     bool _linger_after_streams_finish{true};
 
-	bool _time_out{false};
+	bool _active{true};
 
 	size_t _timer{0};
 
@@ -68,6 +68,9 @@ class TCPConnection {
 
     //! Called when a new segment has been received from the network
     void segment_received(const TCPSegment &seg);
+
+	//! Send a RST segment
+	void send_rst();
 
 	//! Send all segments in the sender's segment out queue
 	void send_all_segments();
